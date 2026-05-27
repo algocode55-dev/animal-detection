@@ -1,0 +1,17 @@
+# Animal Detection Dashboard — Python Dependencies
+# Install: pip install -r requirements.txt
+
+PyQt6>=6.5.0
+PyQt6-Qt6>=6.5.0
+opencv-python>=4.8.0
+ultralytics>=8.0.0
+numpy>=1.24.0
+torch>=2.0.0
+torchvision>=0.15.0
+pillow>=9.0.0
+
+# Optional audio backends (install at least one for sound alerts)
+simpleaudio>=1.0.4
+
+# Optional: GPU monitoring
+# gputil>=1.4.0
