@@ -36,6 +36,11 @@ class Config:
     inference_input_width: int = 640            # Resize frames to this width before inference
     use_half_precision: bool = True             # FP16 when CUDA available
     warmup_frames: int = 2                      # Frames to run at startup for warmup
+    inference_iou_threshold: float = 0.45       # Lower IoU threshold for tighter non-maximum suppression (NMS)
+    track_history_len: int = 5                  # Sliding window size for track validation
+    track_confirm_frames: int = 3               # Required detections in sliding window to confirm track
+    track_max_ttl: int = 8                      # Frames to keep track after target goes out of sight
+
 
     # ── Performance ───────────────────────────────────────────────────────────
     target_fps: int = 30

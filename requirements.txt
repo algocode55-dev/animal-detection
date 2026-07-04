@@ -15,3 +15,6 @@ simpleaudio>=1.0.4
 
 # Optional: GPU monitoring
 # gputil>=1.4.0
+
+# Arduino communication
+pyserial>=3.5

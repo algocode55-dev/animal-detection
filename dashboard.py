@@ -50,6 +50,7 @@ from utils.vision_filters import (
 from utils.drawing import draw_detection_box, draw_hud_overlay, draw_scan_line
 from utils.platform_utils import open_camera, get_cuda_info, enumerate_cameras
 from utils.audio_alerts import AlertThread
+from utils.usb_led import led_controller
 
 # ── Optional YOLO ─────────────────────────────────────────────────────────────
 try:
@@ -198,10 +199,13 @@ class VideoProcessorThread(QThread):
                     track["ttl"] -= 1
 
                 # 2. Match new detections to active tracks
+                matched_track_ids = set()
                 for new_det in new_detections:
                     best_track = None
                     best_iou = -1.0
                     for track in self.active_tracks:
+                        if id(track) in matched_track_ids:
+                            continue
                         if track["class"] == new_det["class"] and track["ttl"] > 0:
                             iou = self._calculate_iou(track["box_abs"], new_det["box_abs"])
                             if iou > best_iou:
@@ -212,20 +216,50 @@ class VideoProcessorThread(QThread):
                         # Match found: update tracking coordinates and confidence, reset TTL
                         best_track["box_abs"] = new_det["box_abs"]
                         best_track["conf"] = new_det["conf"]
-                        best_track["ttl"] = 8
+                        best_track["ttl"] = cfg.track_max_ttl
+                        
+                        # Update history
+                        if "history" not in best_track:
+                            best_track["history"] = [True] * cfg.track_confirm_frames
+                        else:
+                            best_track["history"].append(True)
+                        if len(best_track["history"]) > cfg.track_history_len:
+                            best_track["history"].pop(0)
+                        
+                        # Confirm if we have enough detections in window
+                        if best_track["history"].count(True) >= cfg.track_confirm_frames:
+                            best_track["confirmed"] = True
+                            
+                        matched_track_ids.add(id(best_track))
                     else:
                         # No match: register a new track
                         self.active_tracks.append({
                             "class": new_det["class"],
                             "conf": new_det["conf"],
                             "box_abs": new_det["box_abs"],
-                            "ttl": 8
+                            "ttl": cfg.track_max_ttl,
+                            "history": [True],
+                            "confirmed": False
                         })
 
-                # 3. Clean up dead tracks (TTL <= 0)
+                # 3. For tracks NOT matched in this frame, append False to history
+                for track in self.active_tracks:
+                    if id(track) not in matched_track_ids:
+                        if "history" not in track:
+                            track["history"] = [False]
+                        else:
+                            track["history"].append(False)
+                        if len(track["history"]) > cfg.track_history_len:
+                            track["history"].pop(0)
+                        
+                        # Drop confirmation if track has completely faded
+                        if track["history"].count(True) < 1:
+                            track["confirmed"] = False
+
+                # 4. Clean up dead tracks (TTL <= 0)
                 self.active_tracks = [t for t in self.active_tracks if t["ttl"] > 0]
 
-                # 4. Expose active tracks to drawing & alerting
+                # 5. Expose ONLY confirmed tracks to drawing & alerting
                 detections = [
                     {
                         "class": t["class"],
@@ -233,6 +267,7 @@ class VideoProcessorThread(QThread):
                         "box_abs": t["box_abs"]
                     }
                     for t in self.active_tracks
+                    if t.get("confirmed", False)
                 ]
 
             self._total_count += len(detections)
@@ -277,8 +312,7 @@ class VideoProcessorThread(QThread):
 
             device_str = self._device_str()
             self.stats_ready.emit(fps, inf_latency, self._total_count, device_str)
-            if detections:
-                self.detection_event.emit(detections)
+            self.detection_event.emit(detections)
 
             # ── 8. Throttle ───────────────────────────────────────────────────
             elapsed = time.perf_counter() - loop_start
@@ -316,13 +350,20 @@ class VideoProcessorThread(QThread):
             scale = cfg.inference_input_width / w if w > cfg.inference_input_width else 1.0
             inf_frame = cv2.resize(frame, (0, 0), fx=scale, fy=scale) if scale < 1.0 else frame
             results = self.model(inf_frame, verbose=False,
-                                 conf=self.confidence_threshold)
+                                 conf=self.confidence_threshold,
+                                 iou=cfg.inference_iou_threshold,
+                                 agnostic_nms=True)
             for r in results:
                 for box in r.boxes:
                     x1, y1, x2, y2 = [int(v / scale) for v in box.xyxy[0].tolist()]
                     conf = float(box.conf[0])
                     cls  = int(box.cls[0])
-                    name = self.model.names[cls].capitalize()
+                    raw_name = self.model.names[cls].capitalize()
+                    if raw_name.lower() == "person":
+                        name = "Person"
+                    else:
+                        name = "Animal"
+                        
                     detections.append({
                         "class": name, "conf": conf,
                         "box_abs": (x1, y1, x2, y2),
@@ -773,11 +814,14 @@ class AnimalDetectionDashboard(QMainWindow):
             self._badge.setText("SYSTEM SAFE")
             self._badge.setObjectName("badge_safe")
             self._badge.setStyle(self._badge.style())
+            led_controller.turn_off()
             return
 
         self._badge.setText(f"⚠ ANIMAL DETECTED ({len(detections)})")
         self._badge.setObjectName("badge_alert")
         self._badge.setStyle(self._badge.style())
+
+        led_controller.turn_on()
 
         high = any(d["conf"] >= cfg.alert_high_conf_threshold for d in detections)
         if self._audio_enabled:
@@ -930,6 +974,7 @@ class AnimalDetectionDashboard(QMainWindow):
     def closeEvent(self, event):
         self._proc.stop()
         self._alert.stop()
+        led_controller.turn_off()
         event.accept()
 
 
