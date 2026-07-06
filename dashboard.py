@@ -359,13 +359,15 @@ class VideoProcessorThread(QThread):
                     conf = float(box.conf[0])
                     cls  = int(box.cls[0])
                     raw_name = self.model.names[cls].capitalize()
-                    if raw_name.lower() == "person":
-                        name = "Person"
-                    else:
-                        name = "Animal"
+                    
+                    # Since best.pt is a custom dataset of wild animals, 
+                    # we accept EVERYTHING except "person".
+                    if "person" in raw_name.lower():
+                        print(f"[DEBUG] Ignored detection '{raw_name}' (Person filtered out).")
+                        continue
                         
                     detections.append({
-                        "class": name, "conf": conf,
+                        "class": "Animal", "conf": conf,
                         "box_abs": (x1, y1, x2, y2),
                     })
         elif self.source == "simulation" and self._animal_vis:

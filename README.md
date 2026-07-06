@@ -77,7 +77,7 @@ pip install -r requirements.txt
 
 ```powershell
 cd animal-detection-dashboard
-python -m venv .venv
+py -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 ```
@@ -88,16 +88,16 @@ pip install -r requirements.txt
 
 ```bash
 # Normal launch (starts in simulation mode)
-python dashboard.py
+py dashboard.py
 
 # Start directly with webcam
-python dashboard.py --source webcam
+py dashboard.py --source webcam
 
 # Use a specific model
-python dashboard.py --model path/to/custom.pt
+py dashboard.py --model path/to/custom.pt
 
 # Run diagnostics / test mode
-python dashboard.py --test
+py dashboard.py --test
 ```
 
 ### Keyboard Shortcuts
@@ -128,7 +128,7 @@ The application auto-detects CUDA via PyTorch:
 
 To verify:
 ```bash
-python -c "import torch; print(torch.cuda.is_available())"
+py -c "import torch; print(torch.cuda.is_available())"
 ```
 
 ---
