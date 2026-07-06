@@ -359,6 +359,7 @@ class VideoProcessorThread(QThread):
                     conf = float(box.conf[0])
                     cls  = int(box.cls[0])
                     raw_name = self.model.names[cls].capitalize()
+                    print(f"--- YOLO SAW: {raw_name} at {conf*100:.1f}% confidence ---")
                     
                     # Since best.pt is a custom dataset of wild animals, 
                     # we accept EVERYTHING except "person".
