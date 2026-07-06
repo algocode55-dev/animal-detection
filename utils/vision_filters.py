@@ -9,22 +9,6 @@ import cv2
 import numpy as np
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Thermal Vision
-# ──────────────────────────────────────────────────────────────────────────────
-
-def apply_thermal(frame: np.ndarray, blend: float = 0.82) -> np.ndarray:
-    """
-    Simulated IR thermal vision using CLAHE equalization + JET colormap.
-    blend: weight of the thermal layer (0.0 = original, 1.0 = pure thermal).
-    """
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    # CLAHE improves local contrast to simulate heat-gradient differentiation
-    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
-    eq = clahe.apply(gray)
-    thermal = cv2.applyColorMap(eq, cv2.COLORMAP_JET)
-    return cv2.addWeighted(frame, 1.0 - blend, thermal, blend, 0)
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Night Vision

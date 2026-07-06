@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from utils.config import cfg
 from utils.fps_counter import FPSCounter
 from utils.vision_filters import (
-    apply_thermal, apply_night_vision,
+    apply_night_vision,
     apply_contrast_boost, apply_edge_enhance,
 )
 from utils.drawing import draw_detection_box, draw_hud_overlay, draw_scan_line
@@ -90,7 +90,6 @@ class VideoProcessorThread(QThread):
         # ── Tunable settings (written from GUI thread — atomic Python ints/floats) ──
         self.confidence_threshold = cfg.confidence_threshold
         self.night_vision   = False
-        self.thermal_vision = False
         self.enhance_vision = False
         self.edge_enhance   = False
         self.show_scan_line = True
@@ -276,9 +275,7 @@ class VideoProcessorThread(QThread):
             out = frame.copy()
             if self.enhance_vision:
                 out = apply_contrast_boost(out)
-            if self.thermal_vision:
-                out = apply_thermal(out)
-            elif self.night_vision:
+            if self.night_vision:
                 out = apply_night_vision(out)
             if self.edge_enhance:
                 out = apply_edge_enhance(out)
@@ -293,7 +290,6 @@ class VideoProcessorThread(QThread):
             self._fps.tick()
             fps = self._fps.get_fps()
             mode_flags = {
-                "thermal": self.thermal_vision,
                 "night":   self.night_vision,
                 "boost":   self.enhance_vision,
                 "edge":    self.edge_enhance,
@@ -738,14 +734,12 @@ class AnimalDetectionDashboard(QMainWindow):
         lay.addWidget(vis_lbl)
 
         self._chk_night   = QCheckBox("🌙 Night Vision Goggles")
-        self._chk_thermal = QCheckBox("🌡 IR Thermal Simulation")
         self._chk_boost   = QCheckBox("⚡ Contrast Booster")
         self._chk_edge    = QCheckBox("🔬 Edge Enhancement")
-        for chk in (self._chk_night, self._chk_thermal, self._chk_boost, self._chk_edge):
+        for chk in (self._chk_night, self._chk_boost, self._chk_edge):
             lay.addWidget(chk)
 
         self._chk_night.stateChanged.connect(self._toggle_night)
-        self._chk_thermal.stateChanged.connect(self._toggle_thermal)
         self._chk_boost.stateChanged.connect(lambda s: setattr(self._proc, "enhance_vision", bool(s)))
         self._chk_edge.stateChanged.connect(lambda s: setattr(self._proc, "edge_enhance", bool(s)))
 
@@ -908,13 +902,6 @@ class AnimalDetectionDashboard(QMainWindow):
 
     def _toggle_night(self, state: int):
         self._proc.night_vision = bool(state)
-        if state:
-            self._chk_thermal.setChecked(False)
-
-    def _toggle_thermal(self, state: int):
-        self._proc.thermal_vision = bool(state)
-        if state:
-            self._chk_night.setChecked(False)
 
     def _toggle_audio(self):
         self._audio_enabled = not self._audio_enabled
